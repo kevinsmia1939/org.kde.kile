@@ -1,0 +1,299 @@
+app-id: org.kde.kile
+runtime: org.kde.Platform
+sdk: org.kde.Sdk
+runtime-version: '5.15'
+#base: io.qt.qtwebengine.BaseApp
+#base-version: '5.15'
+command: kile
+finish-args:
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  - --share=network
+cleanup:
+  #- /include
+  #- /lib/cmake
+  #- /share/doc
+  #- *.la
+  #- *.a
+  
+add-build-extensions:
+  org.freedesktop.Sdk.Extension.texlive:
+    version: '20.08'
+    directory: extensions
+
+modules:
+  - name: gnustep-make
+    buildsystem: simple
+    build-commands:
+      - "./configure --prefix=/app"
+      - make -j $FLATPAK_BUILDER_N_JOBS install
+    sources:
+      - type: archive
+        url: https://github.com/gnustep/tools-make/archive/make-2_8_0.tar.gz
+        sha256: a9df9b0d756a93306a8e0cb9e127f5688a459dad3d356cd760565833da605825
+        
+  - name: gnustep
+    buildsystem: simple
+    build-commands:
+      - "./configure --prefix=/app"
+      - make -j $FLATPAK_BUILDER_N_JOBS install
+      - ls /app/include
+    sources:
+      - type: archive
+        url: https://github.com/gnustep/libs-base/releases/download/base-1_27_0/gnustep-base-1.27.0.tar.gz
+        sha256: 8803fa1fdf23f90264a81ad2d9fbe97ba66d6e313e396a28fd7c10d2caceb283
+        
+  - name: unarchiver
+    buildsystem: simple
+    build-commands:
+      - sed -s -i 's#/usr/include/GNUstep#/app/include#g' */Makefile.linux && cd XADMaster && make -j $FLATPAK_BUILDER_N_JOBS -f Makefile.linux
+      - install -m755 XADMaster/unar XADMaster/lsar /app/bin/
+    sources:
+      - type: archive
+        url: https://cdn.theunarchiver.com/downloads/TheUnarchiverSource.zip
+        sha256: ac4cedf9b49375c0f805bda010fa03629d05ab283a0a8e35bf2dd01ae477e0a1
+        strip-components: 0
+        
+  - name: discount
+    buildsystem: simple
+    build-commands:
+      - "./configure.sh --prefix=/app --enable-all-features --with-fenced-code --shared"
+      - sed -e 's|/sbin/ldconfig|/sbin/ldconfig -n|' -i librarian.sh
+      - make install
+    sources:
+      - type: archive
+        url: https://github.com/Orc/discount/archive/v2.2.7.tar.gz
+        sha256: 72c1325ddfc40871d6810f1e272cf2d45b361f26357eb38f170fd04d737bb9f2
+        
+  - name: boost
+    buildsystem: simple
+    build-commands:
+      - "./bootstrap.sh --prefix=/app --with-libraries=system"
+      - "./b2 -j $FLATPAK_BUILDER_N_JOBS install"
+    sources:
+      - type: archive
+        url: https://dl.bintray.com/boostorg/release/1.74.0/source/boost_1_74_0.tar.bz2
+        sha256: 83bfc1507731a0906e387fc28b7ef5417d591429e51e788417fe9ff025e116b1
+        
+  - name: libzip
+    buildsystem: cmake-ninja
+    builddir: true
+    config-opts:
+      - "-DCMAKE_BUILD_TYPE=RelWithDebInfo"
+    sources:
+      - type: archive
+        url: https://libzip.org/download/libzip-1.7.3.tar.xz
+        sha256: a60473ffdb7b4260c08bfa19c2ccea0438edac11193c3afbbb1f17fbcf6c6132
+        
+  - name: chmlib
+    rm-configure: true
+    sources:
+      - type: script
+        dest-filename: autogen.sh
+        commands:
+          - AUTOMAKE="automake --foreign" autoreconf -vfi
+      - type: archive
+        url: http://www.jedrea.com/chmlib/chmlib-0.40.tar.bz2
+        sha256: 3449d64b0cf71578b2c7e3ddc048d4af3661f44a83941ea074a7813f3a59ffa3
+      - type: patch
+        path: chmlib-arm.patch
+        
+  - name: ebook-tools
+    buildsystem: cmake-ninja
+    builddir: true
+    config-opts:
+      - "-DCMAKE_BUILD_TYPE=RelWithDebInfo"
+    sources:
+      - type: archive
+        url: https://downloads.sourceforge.net/project/ebook-tools/ebook-tools/0.2.2/ebook-tools-0.2.2.tar.gz
+        sha256: cbc35996e911144fa62925366ad6a6212d6af2588f1e39075954973bbee627ae
+        
+  - name: djvulibre
+    sources:
+      - type: archive
+        url: http://downloads.sourceforge.net/djvu/djvulibre-3.5.28.tar.gz
+        sha256: fcd009ea7654fde5a83600eb80757bd3a76998e47d13c66b54c8db849f8f2edc
+        
+  - name: ghostscript
+    config-opts:
+      - "--disable-cups"
+    make-args:
+      - so
+    make-install-args:
+      - soinstall
+    cleanup:
+      - "/share/ghostscript/9.53.3/doc/"
+      - "/share/ghostscript/9.53.3/examples"
+    sources:
+      - type: archive
+        url: https://github.com/ArtifexSoftware/ghostpdl-downloads/releases/download/gs9533/ghostscript-9.53.3.tar.gz
+        sha256: 6eaf422f26a81854a230b80fd18aaef7e8d94d661485bd2e97e695b9dce7bf7f
+          
+  - name: libspectre
+    sources:
+      - type: archive
+        url: http://libspectre.freedesktop.org/releases/libspectre-0.2.9.tar.gz
+        sha256: 49ae9c52b5af81b405455c19fe24089d701761da2c45d22164a99576ceedfbed
+        
+  - name: openjpeg
+    buildsystem: cmake-ninja
+    builddir: true
+    config-opts:
+      - "-DCMAKE_BUILD_TYPE=RelWithDebInfo"
+    cleanup:
+      - "/bin"
+      - "/lib/openjpeg-*"
+    sources:
+      - type: archive
+        url: https://github.com/uclouvain/openjpeg/archive/v2.4.0.tar.gz
+        sha256: 8702ba68b442657f11aaeb2b338443ca8d5fb95b0d845757968a7be31ef7f16d
+    
+  - name: poppler-data
+    buildsystem: cmake-ninja
+    builddir: true
+    config-opts:
+      - "-DCMAKE_BUILD_TYPE=RelWithDebInfo"
+    sources:
+      - type: archive
+        url: https://poppler.freedesktop.org/poppler-data-0.4.10.tar.gz
+        sha256: 6e2fcef66ec8c44625f94292ccf8af9f1d918b410d5aa69c274ce67387967b30
+        
+  - name: poppler
+    buildsystem: cmake-ninja
+    builddir: true
+    config-opts:
+      - "-DCMAKE_BUILD_TYPE=RelWithDebInfo"
+      - "-DBUILD_GTK_TESTS=OFF"
+      - "-DBUILD_QT5_TESTS=OFF"
+      - "-DBUILD_CPP_TESTS=OFF"
+      - "-DENABLE_UTILS=OFF"
+      - "-DENABLE_CPP=OFF"
+      - "-DENABLE_GLIB=OFF"
+    sources:
+      - type: archive
+        url: https://poppler.freedesktop.org/poppler-21.02.0.tar.xz
+        sha256: 5c14759c99891e6e472aced6d5f0ff1dacf85d80cd9026d365c55c653edf792c
+        
+  - name: exiv2
+    buildsystem: cmake-ninja
+    builddir: true
+    config-opts:
+      - "-DCMAKE_BUILD_TYPE=RelWithDebInfo"
+    sources:
+      - type: archive
+        url: https://www.exiv2.org/builds/exiv2-0.27.2-Source.tar.gz
+        sha256: 2652f56b912711327baff6dc0c90960818211cf7ab79bb5e1eb59320b78d153f
+        
+  - name: extra-cmake-modules
+    cleanup:
+      - "*"
+    buildsystem: cmake-ninja
+    config-opts:
+      - "-DENABLE_TESTING=OFF"
+    sources:
+      - type: git
+        url: https://invent.kde.org/frameworks/extra-cmake-modules.git
+        branch: "v5.78.0"
+        
+  - name: kjs
+    buildsystem: cmake-ninja
+    builddir: true
+    config-opts: 
+      - -DCMAKE_BUILD_TYPE=RelWithDebInfo
+    sources: 
+      - type: archive
+        url: https://download.kde.org/stable/frameworks/5.78/portingAids/kjs-5.78.0.tar.xz
+        sha256: 9070e1d8b28ea111f1946de57fd80c74dd03e92e31fa3106c4fbb5d38de4566a
+        
+  - name: khtml
+    buildsystem: cmake-ninja
+    builddir: true
+    config-opts:
+      -DCMAKE_BUILD_TYPE=RelWithDebInfo
+    sources:
+      - type: archive
+        url: https://download.kde.org/stable/frameworks/5.78/portingAids/khtml-5.78.0.tar.xz
+        sha256: 16b63351a779bb877263c86fcc3600f8385dbfb7218593560fe022ba1830515d
+      
+  - name: libkexiv2
+    buildsystem: cmake-ninja
+    builddir: true
+    config-opts:
+      - "-DCMAKE_BUILD_TYPE=RelWithDebInfo"
+    sources:
+      - type: archive
+        url: https://download.kde.org/stable/release-service/20.12.3/src/libkexiv2-20.12.3.tar.xz
+        sha256: b762730416f8c9db6075695222027c0c37cec8c8defe0c5723af570fa49021e4
+        
+  - name: kdegraphics-mobipocket
+    buildsystem: cmake-ninja
+    builddir: true
+    config-opts:
+      - "-DCMAKE_BUILD_TYPE=RelWithDebInfo"
+    sources:
+      - type: archive
+        url: https://download.kde.org/stable/release-service/20.12.3/src/kdegraphics-mobipocket-20.12.3.tar.xz
+        sha256: 9448b979b9722bc73bd0429733016399933f9c41f19b5cc1ecb8458226fd71fd
+        
+  - name: qca
+    buildsystem: cmake-ninja
+    config-opts:
+      - "-DBUILD_TESTS=OFF"
+    sources:
+      - type: archive
+        url: https://download.kde.org/stable/qca/2.3.1/qca-2.3.1.tar.xz
+        sha256: c13851109abefc4623370989fae3a745bf6b1acb3c2a13a8958539823e974e4b
+        
+  - name: cups
+    buildsystem: simple
+    build-commands:
+      - "./configure --disable-systemd --enable-threads --enable-gnutls"
+      - gcc berkeley/lpr.c -o /app/bin/lpr -I . -lcups
+    sources:
+     - type: archive
+       url: https://github.com/apple/cups/releases/download/v2.3.3/cups-2.3.3-source.tar.gz
+       sha256: 261fd948bce8647b6d5cb2a1784f0c24cc52b5c4e827b71d726020bcc502f3ee
+       
+  - name: kbibtex
+    buildsystem: cmake-ninja
+    sources:
+      - type: archive
+        url: https://download.kde.org/stable/KBibTeX/0.9.2/kbibtex-0.9.2.tar.xz
+        sha256: d98651fba99de8ebaf1a19bd8b3c3ac660a34cea33e4c587be30fd61466fac27
+       
+  - name: okular
+    buildsystem: cmake-ninja
+    builddir: true
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=RelWithDebInfo
+      - -DBUILD_OKULARKIRIGAMI=OFF
+    post-install:
+      - mv /app/bin/okular /app/bin/okular-bin
+      - install -Dm755 ../okular-wrapper /app/bin/okular
+    sources:
+      - type: archive
+        url: https://download.kde.org/stable/release-service/20.12.3/src/okular-20.12.3.tar.xz
+        sha256: ae570fcd2b35cc9c061c1c55b6f8de256358f0f5dd8d0a8283f13eae006b73dc
+      - type: patch
+        path: okular-mimetypes.patch
+      - type: script
+        dest-filename: okular-wrapper
+        commands:
+          - export TMPDIR="$XDG_RUNTIME_DIR/app/$FLATPAK_ID"
+          - exec /app/bin/okular-bin "$@"
+
+  - name: Kile
+    buildsystem: cmake
+    #build-options:
+      #append-ld-library-path: /app/lib:/app/lib64
+      #prepend-ld-library-path: /app/lib:/app/lib64
+    #config-opts:
+      #- -DCMAKE_BUILD_TYPE:STRING=Release
+      #- -DBOOST_STATIC=OFF
+      #- -DEIGEN3_VERSION=3.3.9
+    sources:
+      - type: archive
+        url: https://sourceforge.net/projects/kile/files/unstable/kile-3.0b3/kile-2.9.93.tar.bz2
+        sha256: 04499212ffcb24fb3a6829149a7cae4c6ad5d795985f080800d6df72f88c5df0
